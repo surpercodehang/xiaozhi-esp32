@@ -1,5 +1,39 @@
 menu "Xiaozhi Assistant"
 
+choice PROTOCOL_TYPE
+    prompt "Protocol Type"
+    default PROTOCOL_TYPE_AUTO
+    help
+        Select the communication protocol for XiaoZhi AI
+
+    config PROTOCOL_TYPE_AUTO
+        bool "Auto (OTA Config)"
+    config PROTOCOL_TYPE_MQTT
+        bool "MQTT Protocol"
+    config PROTOCOL_TYPE_WEBSOCKET
+        bool "WebSocket Protocol"
+    config PROTOCOL_TYPE_DASHSCOPE
+        bool "Aliyun DashScope Protocol"
+endchoice
+
+config DASHSCOPE_API_KEY
+    string "DashScope API Key"
+    default ""
+    help
+        API Key for Aliyun DashScope service (leave empty to use OTA config)
+
+config DASHSCOPE_APP_ID
+    string "DashScope App ID"
+    default ""
+    help
+        Application ID for DashScope intelligent agent (leave empty to use OTA config)
+
+config DASHSCOPE_BASE_URL
+    string "DashScope Base URL"
+    default "https://dashscope.aliyuncs.com/api/v1/"
+    help
+        Base URL for DashScope API
+
 config OTA_URL
     string "Default OTA URL"
     default "https://api.tenclass.net/xiaozhi/ota/"

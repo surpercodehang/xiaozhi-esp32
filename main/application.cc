@@ -5,6 +5,7 @@
 #include "audio_codec.h"
 #include "mqtt_protocol.h"
 #include "websocket_protocol.h"
+#include "dashscope_protocol.h"
 #include "assets/lang_config.h"
 #include "mcp_server.h"
 #include "assets.h"
@@ -473,13 +474,23 @@ void Application::InitializeProtocol() {
 
     display->SetStatus(Lang::Strings::LOADING_PROTOCOL);
 
-    if (ota_->HasMqttConfig()) {
-        protocol_ = std::make_unique<MqttProtocol>();
-    } else if (ota_->HasWebsocketConfig()) {
-        protocol_ = std::make_unique<WebsocketProtocol>();
-    } else {
-        ESP_LOGW(TAG, "No protocol specified in the OTA config, using MQTT");
-        protocol_ = std::make_unique<MqttProtocol>();
+    // Check if DashScope protocol is configured (highest priority)
+#if defined(CONFIG_DASHSCOPE_API_KEY) && defined(CONFIG_DASHSCOPE_APP_ID)
+    if (strlen(CONFIG_DASHSCOPE_API_KEY) > 0 && strlen(CONFIG_DASHSCOPE_APP_ID) > 0) {
+        ESP_LOGI(TAG, "Using DashScope protocol");
+        protocol_ = std::make_unique<DashScopeProtocol>();
+    } else
+#endif
+    {
+        // Fallback to OTA-based protocol selection if DashScope not configured or not valid
+        if (ota_->HasMqttConfig()) {
+            protocol_ = std::make_unique<MqttProtocol>();
+        } else if (ota_->HasWebsocketConfig()) {
+            protocol_ = std::make_unique<WebsocketProtocol>();
+        } else {
+            ESP_LOGW(TAG, "No protocol specified in the OTA config, using MQTT");
+            protocol_ = std::make_unique<MqttProtocol>();
+        }
     }
 
     protocol_->OnConnected([this]() {
@@ -497,9 +508,9 @@ void Application::InitializeProtocol() {
         }
     });
     
-    protocol_->OnAudioChannelOpened([this, codec, &board]() {
+    protocol_->OnAudioChannelOpened([this, &board, codec]() {
         board.SetPowerSaveLevel(PowerSaveLevel::PERFORMANCE);
-        if (protocol_->server_sample_rate() != codec->output_sample_rate()) {
+        if (protocol_ && protocol_->server_sample_rate() != codec->output_sample_rate()) {
             ESP_LOGW(TAG, "Server sample rate %d does not match device output sample rate %d, resampling may cause distortion",
                 protocol_->server_sample_rate(), codec->output_sample_rate());
         }
