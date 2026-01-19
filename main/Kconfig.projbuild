@@ -6,6 +6,78 @@ config OTA_URL
     help
         The application will access this URL to check for new firmwares and server address.
 
+choice API_MODE
+    prompt "API Mode"
+    default API_MODE_XIAOZHI_SERVER
+    help
+        Select the API mode to use for AI model interaction
+
+    config API_MODE_XIAOZHI_SERVER
+        bool "XiaoZhi Official Server"
+        help
+            Use xiaozhi.me official server (default mode)
+
+    config API_MODE_ALIYUN_BAILIAN
+        bool "Aliyun Bailian API"
+        help
+            Use Aliyun Bailian Application API directly
+
+    config API_MODE_CUSTOM_SERVER
+        bool "Custom Server"
+        help
+            Use custom server with compatible protocol
+endchoice
+
+menu "Aliyun Bailian Configuration"
+    depends on API_MODE_ALIYUN_BAILIAN
+
+    config BAILIAN_API_KEY
+        string "Bailian API Key"
+        default ""
+        help
+            Your Aliyun Bailian API Key (e.g., sk-xxx)
+            Get it from https://dashscope.console.aliyun.com/
+
+    config BAILIAN_APP_ID
+        string "Bailian Application ID"
+        default ""
+        help
+            Your Bailian Application ID
+            Create an app at https://bailian.console.aliyun.com/
+
+    config BAILIAN_ENDPOINT
+        string "Bailian API Endpoint"
+        default "https://dashscope.aliyuncs.com/api/v1/apps"
+        help
+            Bailian API endpoint URL (usually don't need to change)
+
+    config BAILIAN_ENABLE_STREAM
+        bool "Enable Stream Output"
+        default y
+        help
+            Enable streaming output from Bailian API for real-time response
+
+    config BAILIAN_ENABLE_INCREMENTAL
+        bool "Enable Incremental Output"
+        default y
+        depends on BAILIAN_ENABLE_STREAM
+        help
+            Enable incremental output in streaming mode (only output new content)
+
+    config BAILIAN_ENABLE_THOUGHTS
+        bool "Enable Thoughts Output"
+        default n
+        help
+            Enable thoughts output for deep thinking models (e.g., DeepSeek-R1, Qwen3 with thinking mode)
+
+    config BAILIAN_TIMEOUT_MS
+        int "API Request Timeout (ms)"
+        default 30000
+        help
+            Timeout for API requests in milliseconds
+
+endmenu
+
 choice
     prompt "Flash Assets"
     default FLASH_DEFAULT_ASSETS if !USE_EMOTE_MESSAGE_STYLE

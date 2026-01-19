@@ -5,6 +5,9 @@
 #include "audio_codec.h"
 #include "mqtt_protocol.h"
 #include "websocket_protocol.h"
+#ifdef CONFIG_API_MODE_ALIYUN_BAILIAN
+#include "bailian_protocol.h"
+#endif
 #include "assets/lang_config.h"
 #include "mcp_server.h"
 #include "assets.h"
@@ -473,6 +476,12 @@ void Application::InitializeProtocol() {
 
     display->SetStatus(Lang::Strings::LOADING_PROTOCOL);
 
+#ifdef CONFIG_API_MODE_ALIYUN_BAILIAN
+    // 使用阿里云百炼 API
+    ESP_LOGI(TAG, "Using Aliyun Bailian API mode");
+    protocol_ = std::make_unique<BailianProtocol>();
+#else
+    // 使用原有的 WebSocket 或 MQTT 协议
     if (ota_->HasMqttConfig()) {
         protocol_ = std::make_unique<MqttProtocol>();
     } else if (ota_->HasWebsocketConfig()) {
@@ -481,6 +490,7 @@ void Application::InitializeProtocol() {
         ESP_LOGW(TAG, "No protocol specified in the OTA config, using MQTT");
         protocol_ = std::make_unique<MqttProtocol>();
     }
+#endif
 
     protocol_->OnConnected([this]() {
         DismissAlert();
