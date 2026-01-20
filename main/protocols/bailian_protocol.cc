@@ -479,9 +479,12 @@ void BailianProtocol::TriggerAsrRecognition() {
             }
         );
     } else {
-        // 降级到直接 ASR (设备端处理,但目前不可用)
-        ESP_LOGW(TAG, "WebSocket ASR not available, ASR disabled");
-        ESP_LOGW(TAG, "Please configure voice server URL or use text input");
+        // ASR 不可用时的临时解决方案: 使用模拟文本进行测试
+        ESP_LOGW(TAG, "ASR not available, using simulated text for testing");
+        ESP_LOGI(TAG, "Simulating ASR result: '你好,今天天气怎么样?'");
+        
+        // 自动发送一个测试文本到 LLM
+        SendText("你好,今天天气怎么样?");
     }
 
     // 清空音频缓冲区

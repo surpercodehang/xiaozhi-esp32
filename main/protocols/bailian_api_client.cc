@@ -30,7 +30,8 @@ bool BailianApiClient::Initialize() {
 
     auto& board = Board::GetInstance();
     auto network = board.GetNetwork();
-    http_ = network->CreateHttp(0);
+    // 使用 30 秒超时 (索引 3 通常表示较长超时)
+    http_ = network->CreateHttp(3);
 
     if (!http_) {
         ESP_LOGE(TAG, "Failed to create HTTP client");
@@ -172,6 +173,16 @@ bool BailianApiClient::SendPrompt(const std::string& prompt,
 
     ESP_LOGI(TAG, "Sending request to: %s", url.c_str());
     ESP_LOGD(TAG, "Request body: %s", body.c_str());
+    ESP_LOGD(TAG, "API Key (first 10 chars): %.10s...", config_.api_key.c_str());
+
+    // 重新设置请求头 (确保每次请求都有正确的 Header)
+    std::string auth_header = "Bearer " + config_.api_key;
+    http_->SetHeader("Authorization", auth_header.c_str());
+    http_->SetHeader("Content-Type", "application/json");
+    
+    if (config_.stream) {
+        http_->SetHeader("X-DashScope-SSE", "enable");
+    }
 
     // 设置请求体
     http_->SetContent(std::move(body));
@@ -187,17 +198,31 @@ bool BailianApiClient::SendPrompt(const std::string& prompt,
 
     // 获取响应状态码
     int status_code = http_->GetStatusCode();
+    ESP_LOGI(TAG, "HTTP status code: %d", status_code);
+    
     if (status_code != 200) {
         std::string error = "HTTP error: " + std::to_string(status_code);
         ESP_LOGE(TAG, "%s", error.c_str());
+        
+        // 尝试读取错误响应
+        std::string error_body = http_->ReadAll();
+        ESP_LOGE(TAG, "Error response: %s", error_body.c_str());
+        
         if (on_error) {
             on_error(error);
         }
         return false;
     }
 
+    // 获取响应长度
+    size_t content_length = http_->GetBodyLength();
+    ESP_LOGI(TAG, "Response content length: %d", content_length);
+    
     // 读取响应
+    ESP_LOGI(TAG, "Reading response body...");
     std::string response_body = http_->ReadAll();
+    ESP_LOGI(TAG, "Response body length: %d bytes", response_body.length());
+    ESP_LOGD(TAG, "Response body: %s", response_body.c_str());
 
     if (config_.stream) {
         // 流式响应,解析 SSE

@@ -4,11 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="bd2ee69e-5b71-4c0f-b5ce-cac9936c3448" name="Changes" comment="基于grok code修改的代码逻辑">
-      <change beforePath="$PROJECT_DIR$/main/CMakeLists.txt" beforeDir="false" afterPath="$PROJECT_DIR$/main/CMakeLists.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/main/Kconfig.projbuild" beforeDir="false" afterPath="$PROJECT_DIR$/main/Kconfig.projbuild" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/main/application.cc" beforeDir="false" afterPath="$PROJECT_DIR$/main/application.cc" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/sdkconfig.defaults.esp32s3" beforeDir="false" afterPath="$PROJECT_DIR$/sdkconfig.defaults.esp32s3" afterDir="false" />
+    <list default="true" id="bd2ee69e-5b71-4c0f-b5ce-cac9936c3448" name="Changes" comment="当前逻辑编译ok，尝试解决百炼400的问题">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/main/protocols/bailian_api_client.cc" beforeDir="false" afterPath="$PROJECT_DIR$/main/protocols/bailian_api_client.cc" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/main/protocols/bailian_protocol.cc" beforeDir="false" afterPath="$PROJECT_DIR$/main/protocols/bailian_protocol.cc" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -71,11 +70,40 @@
       <option name="project" value="LOCAL" />
       <updated>1768789374326</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="基于claude code修改的代码逻辑&#10;&#10;当前的逻辑是可以编译成功，但是连接不到百炼，报错400">
+      <option name="closed" value="true" />
+      <created>1768838276520</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1768838276520</updated>
+    </task>
+    <task id="LOCAL-00003" summary="当前逻辑编译ok，尝试解决百炼400的问题">
+      <option name="closed" value="true" />
+      <created>1768878751820</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1768878751820</updated>
+    </task>
+    <option name="localTasksCounter" value="4" />
     <servers />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="基于grok code修改的代码逻辑" />
-    <option name="LAST_COMMIT_MESSAGE" value="基于grok code修改的代码逻辑" />
+    <MESSAGE value="基于claude code修改的代码逻辑&#10;&#10;当前的逻辑是可以编译成功，但是连接不到百炼，报错400" />
+    <MESSAGE value="当前逻辑编译ok，尝试解决百炼400的问题" />
+    <option name="LAST_COMMIT_MESSAGE" value="当前逻辑编译ok，尝试解决百炼400的问题" />
   </component>
 </project>
