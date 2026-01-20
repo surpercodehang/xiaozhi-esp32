@@ -60,8 +60,9 @@ private:
     std::unique_ptr<Http> http_;
 
     bool LoadConfig();
-    std::string BuildRequestBody(const std::vector<uint8_t>& audio_data);
+    std::string BuildRequestUrl(const std::string& base_url);
     bool ParseResponse(const std::string& json_str, OnResultCallback callback);
+    std::vector<int16_t> OpusToPcm(const std::vector<uint8_t>& opus_data);
 };
 
 #endif // ALIYUN_ASR_CLIENT_H

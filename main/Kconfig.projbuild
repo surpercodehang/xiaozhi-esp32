@@ -76,6 +76,14 @@ menu "Aliyun Bailian Configuration"
         help
             Timeout for API requests in milliseconds
 
+    config VOICE_SERVER_URL
+        string "Voice Server URL (for ASR)"
+        default ""
+        help
+            WebSocket URL of the voice server for ASR processing
+            Example: ws://192.168.10.100:8000/voice
+            Leave empty to disable server-side ASR
+
 endmenu
 
 choice

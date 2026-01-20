@@ -23,11 +23,11 @@ bool AliyunAsrClient::Initialize(const std::string& api_key) {
         return false;
     }
 
-    // 设置默认配置
+    // 设置默认配置 - 使用一句话识别 API
     if (config_.endpoint.empty()) {
-        config_.endpoint = "https://nls-gateway-cn-shanghai.aliyuncs.com/stream/v1/asr";
+        config_.endpoint = "https://nls-gateway-cn-shanghai.aliyuncs.com/stream/v1/FlashRecognizer";
     }
-    config_.format = "opus";
+    config_.format = "pcm";  // 阿里云 ASR 需要 PCM 格式
     config_.sample_rate = 16000;
 
     ESP_LOGI(TAG, "ASR Client initialized");
@@ -40,91 +40,36 @@ bool AliyunAsrClient::LoadConfig() {
     return !config_.api_key.empty();
 }
 
-std::string AliyunAsrClient::BuildRequestBody(const std::vector<uint8_t>& audio_data) {
-    // 将音频数据转为 Base64
-    size_t olen = 0;
-    mbedtls_base64_encode(nullptr, 0, &olen, audio_data.data(), audio_data.size());
+std::string AliyunAsrClient::BuildRequestUrl(const std::string& base_url) {
+    // 构造请求 URL (使用 GET 请求,参数在 URL 中)
+    std::string url = base_url;
+    url += "?appkey=default";  // 使用默认 appkey
+    url += "&format=" + config_.format;
+    url += "&sample_rate=" + std::to_string(config_.sample_rate);
+    url += "&enable_punctuation_prediction=" + std::string(config_.enable_punctuation ? "true" : "false");
+    url += "&enable_inverse_text_normalization=" + std::string(config_.enable_itn ? "true" : "false");
     
-    std::vector<uint8_t> base64_buffer(olen);
-    mbedtls_base64_encode(base64_buffer.data(), base64_buffer.size(), &olen,
-                          audio_data.data(), audio_data.size());
-    
-    std::string audio_base64(reinterpret_cast<const char*>(base64_buffer.data()), olen);
-
-    // 构造请求 JSON
-    cJSON* root = cJSON_CreateObject();
-    cJSON_AddStringToObject(root, "format", config_.format.c_str());
-    cJSON_AddNumberToObject(root, "sample_rate", config_.sample_rate);
-    cJSON_AddStringToObject(root, "audio", audio_base64.c_str());
-    cJSON_AddBoolToObject(root, "enable_punctuation_prediction", config_.enable_punctuation);
-    cJSON_AddBoolToObject(root, "enable_inverse_text_normalization", config_.enable_itn);
-
-    char* json_str = cJSON_PrintUnformatted(root);
-    std::string body(json_str);
-    free(json_str);
-    cJSON_Delete(root);
-
-    return body;
+    return url;
 }
 
 bool AliyunAsrClient::RecognizeOnce(const std::vector<uint8_t>& audio_data,
                                     OnResultCallback on_result,
                                     OnErrorCallback on_error) {
-    auto& board = Board::GetInstance();
-    auto network = board.GetNetwork();
-    http_ = network->CreateHttp(0);
-
-    if (!http_) {
-        ESP_LOGE(TAG, "Failed to create HTTP client");
-        if (on_error) {
-            on_error("Failed to create HTTP client");
-        }
-        return false;
-    }
-
-    // 设置请求头
-    std::string auth_header = "Bearer " + config_.api_key;
-    http_->SetHeader("Authorization", auth_header.c_str());
-    http_->SetHeader("Content-Type", "application/json");
-
-    // 构造请求体
-    std::string body = BuildRequestBody(audio_data);
+    // 注意: Opus 音频需要先解码为 PCM
+    // 由于 ESP32 上 Opus 解码比较复杂,这里暂时跳过 ASR
+    // 建议:
+    // 1. 在设备端保存原始 PCM 数据用于 ASR
+    // 2. 或者在服务器端进行 ASR
+    // 3. 或者集成 Opus 解码库
     
-    ESP_LOGI(TAG, "Sending ASR request, audio size: %d bytes", audio_data.size());
+    ESP_LOGW(TAG, "ASR temporarily disabled - Opus to PCM conversion needed");
+    ESP_LOGI(TAG, "Audio size: %d bytes (Opus encoded)", audio_data.size());
     
-    // 发送请求
-    http_->SetContent(std::move(body));
+    if (on_error) {
+        on_error("ASR not available - PCM format required");
+    }
     
-    if (!http_->Open("POST", config_.endpoint)) {
-        ESP_LOGE(TAG, "Failed to open HTTP connection");
-        if (on_error) {
-            on_error("Failed to open HTTP connection");
-        }
-        return false;
-    }
-
-    // 获取响应
-    int status_code = http_->GetStatusCode();
-    if (status_code != 200) {
-        std::string error = "HTTP error: " + std::to_string(status_code);
-        ESP_LOGE(TAG, "%s", error.c_str());
-        if (on_error) {
-            on_error(error);
-        }
-        return false;
-    }
-
-    std::string response_body = http_->ReadAll();
-    
-    // 解析响应
-    if (!ParseResponse(response_body, on_result)) {
-        if (on_error) {
-            on_error("Failed to parse ASR response");
-        }
-        return false;
-    }
-
-    return true;
+    return false;
 }
 
 bool AliyunAsrClient::ParseResponse(const std::string& json_str, OnResultCallback callback) {

@@ -5,9 +5,11 @@
 #include "bailian_api_client.h"
 #include "aliyun_asr_client.h"
 #include "aliyun_tts_client.h"
+#include "websocket_asr_client.h"
 #include <memory>
 #include <string>
 #include <vector>
+#include <esp_timer.h>
 
 /**
  * @brief 阿里云百炼协议适配器
@@ -36,11 +38,16 @@ private:
     std::unique_ptr<BailianApiClient> client_;
     std::unique_ptr<AliyunAsrClient> asr_client_;
     std::unique_ptr<AliyunTtsClient> tts_client_;
+    std::unique_ptr<WebsocketAsrClient> ws_asr_client_;
     
     bool channel_opened_ = false;
     bool is_listening_ = false;
     std::string accumulated_text_;      // 累积的文本(用于拼接流式输出)
     std::vector<uint8_t> audio_buffer_; // 累积的音频数据
+    esp_timer_handle_t asr_timer_ = nullptr; // ASR 触发定时器
+    
+    void TriggerAsrRecognition();
+    static void AsrTimerCallback(void* arg);
 
     /**
      * @brief 处理百炼 API 响应

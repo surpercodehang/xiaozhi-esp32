@@ -9,9 +9,14 @@ BailianProtocol::BailianProtocol() {
     client_ = std::make_unique<BailianApiClient>();
     asr_client_ = std::make_unique<AliyunAsrClient>();
     tts_client_ = std::make_unique<AliyunTtsClient>();
+    ws_asr_client_ = std::make_unique<WebsocketAsrClient>();
 }
 
 BailianProtocol::~BailianProtocol() {
+    if (asr_timer_) {
+        esp_timer_stop(asr_timer_);
+        esp_timer_delete(asr_timer_);
+    }
 }
 
 bool BailianProtocol::Start() {
@@ -40,11 +45,25 @@ bool BailianProtocol::Start() {
         return false;
     }
 
-    // 初始化 ASR 客户端
-    if (!asr_client_->Initialize(api_key)) {
-        ESP_LOGW(TAG, "Failed to initialize ASR client (will retry later)");
-    } else {
-        ESP_LOGI(TAG, "ASR client initialized");
+    // 初始化 WebSocket ASR 客户端 (优先使用)
+#ifdef CONFIG_VOICE_SERVER_URL
+    std::string ws_url = CONFIG_VOICE_SERVER_URL;
+    if (!ws_url.empty()) {
+        if (ws_asr_client_->Initialize(ws_url)) {
+            ESP_LOGI(TAG, "WebSocket ASR client initialized with URL: %s", ws_url.c_str());
+        } else {
+            ESP_LOGW(TAG, "Failed to initialize WebSocket ASR client, falling back to direct ASR");
+        }
+    }
+#endif
+
+    // 初始化直接 ASR 客户端 (作为备用)
+    if (!ws_asr_client_->IsConnected()) {
+        if (!asr_client_->Initialize(api_key)) {
+            ESP_LOGW(TAG, "Failed to initialize ASR client");
+        } else {
+            ESP_LOGI(TAG, "Direct ASR client initialized");
+        }
     }
 
     // 初始化 TTS 客户端
@@ -53,6 +72,15 @@ bool BailianProtocol::Start() {
     } else {
         ESP_LOGI(TAG, "TTS client initialized");
     }
+
+    // 创建 ASR 触发定时器
+    esp_timer_create_args_t timer_args = {
+        .callback = &BailianProtocol::AsrTimerCallback,
+        .arg = this,
+        .dispatch_method = ESP_TIMER_TASK,
+        .name = "asr_timer"
+    };
+    esp_timer_create(&timer_args, &asr_timer_);
 
     if (on_connected_) {
         on_connected_();
@@ -150,33 +178,24 @@ bool BailianProtocol::SendAudio(std::unique_ptr<AudioStreamPacket> packet) {
     ESP_LOGD(TAG, "Audio packet received: %d bytes, total: %d bytes", 
              packet->payload.size(), audio_buffer_.size());
 
-    // 当累积足够的音频数据时(约 3 秒),进行一次 ASR 识别
-    // 这里简单地设置一个阈值,实际应用中可以根据 VAD 判断
     const size_t MAX_BUFFER_SIZE = 48000; // 约 3 秒的 Opus 数据
     
     if (audio_buffer_.size() >= MAX_BUFFER_SIZE) {
-        ESP_LOGI(TAG, "Buffer full, triggering ASR recognition");
+        ESP_LOGI(TAG, "Audio buffer reached threshold (%d bytes), triggering ASR", audio_buffer_.size());
         
-        // 复制当前缓冲区用于识别
-        std::vector<uint8_t> audio_data = audio_buffer_;
+        // 停止之前的定时器
+        if (asr_timer_) {
+            esp_timer_stop(asr_timer_);
+        }
         
-        // 清空缓冲区以接收新数据
-        audio_buffer_.clear();
-        
-        // 异步进行 ASR 识别
-        asr_client_->RecognizeOnce(
-            audio_data,
-            [this](const AliyunAsrClient::Response& resp) {
-                if (!resp.text.empty()) {
-                    ESP_LOGI(TAG, "ASR result: %s", resp.text.c_str());
-                    // 将识别结果发送到 LLM
-                    SendText(resp.text);
-                }
-            },
-            [](const std::string& error) {
-                ESP_LOGE(TAG, "ASR error: %s", error.c_str());
-            }
-        );
+        // 立即触发 ASR 识别
+        TriggerAsrRecognition();
+    } else {
+        // 重置定时器 - 如果 2 秒内没有新音频,则触发识别
+        if (asr_timer_) {
+            esp_timer_stop(asr_timer_);
+            esp_timer_start_once(asr_timer_, 2000000); // 2秒
+        }
     }
 
     return true;
@@ -434,4 +453,43 @@ void BailianProtocol::HandleError(const std::string& error) {
     }
 
     cJSON_Delete(json);
+}
+
+void BailianProtocol::TriggerAsrRecognition() {
+    if (audio_buffer_.empty()) {
+        ESP_LOGD(TAG, "No audio data to recognize");
+        return;
+    }
+
+    ESP_LOGI(TAG, "Triggering ASR recognition with %d bytes of audio", audio_buffer_.size());
+
+    // 优先使用 WebSocket ASR 客户端 (服务器端处理)
+    if (ws_asr_client_ && ws_asr_client_->IsConnected()) {
+        ESP_LOGI(TAG, "Using WebSocket ASR (server-side)");
+        
+        ws_asr_client_->SendAudio(
+            audio_buffer_,
+            [this](const std::string& text) {
+                ESP_LOGI(TAG, "WebSocket ASR result: %s", text.c_str());
+                // 将识别结果发送到 LLM
+                SendText(text);
+            },
+            [](const std::string& error) {
+                ESP_LOGE(TAG, "WebSocket ASR error: %s", error.c_str());
+            }
+        );
+    } else {
+        // 降级到直接 ASR (设备端处理,但目前不可用)
+        ESP_LOGW(TAG, "WebSocket ASR not available, ASR disabled");
+        ESP_LOGW(TAG, "Please configure voice server URL or use text input");
+    }
+
+    // 清空音频缓冲区
+    audio_buffer_.clear();
+}
+
+void BailianProtocol::AsrTimerCallback(void* arg) {
+    auto* protocol = static_cast<BailianProtocol*>(arg);
+    ESP_LOGI(TAG, "ASR timer expired, triggering recognition");
+    protocol->TriggerAsrRecognition();
 }
