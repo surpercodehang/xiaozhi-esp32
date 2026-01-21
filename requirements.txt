@@ -1,0 +1,16 @@
+# 小智百炼服务器依赖包
+
+# WebSocket 服务器
+websockets>=12.0
+
+# 阿里云百炼 SDK
+dashscope>=1.14.0
+
+# Opus 音频编解码
+opuslib>=3.0.1
+
+# 阿里云语音服务 SDK (可选，如果使用阿里云 ASR/TTS)
+alibabacloud_nls_python_sdk>=0.0.1
+
+# 其他工具
+python-dotenv>=1.0.0
