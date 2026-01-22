@@ -5,6 +5,7 @@
 #include "audio_codec.h"
 #include "mqtt_protocol.h"
 #include "websocket_protocol.h"
+#include "dashscope_protocol.h"
 #include "assets/lang_config.h"
 #include "mcp_server.h"
 #include "assets.h"
@@ -392,78 +393,22 @@ void Application::CheckAssetsVersion() {
 }
 
 void Application::CheckNewVersion() {
-    const int MAX_RETRY = 10;
-    int retry_count = 0;
-    int retry_delay = 10; // Initial retry delay in seconds
-
+    // 跳过官方服务器的版本检查和激活流程
+    // 使用阿里云百炼应用,不需要官方服务器激活
+    ESP_LOGI(TAG, "Skipping official server version check - using Dashscope protocol");
+    
     auto& board = Board::GetInstance();
-    while (true) {
-        auto display = board.GetDisplay();
-        display->SetStatus(Lang::Strings::CHECKING_NEW_VERSION);
-
-        esp_err_t err = ota_->CheckVersion();
-        if (err != ESP_OK) {
-            retry_count++;
-            if (retry_count >= MAX_RETRY) {
-                ESP_LOGE(TAG, "Too many retries, exit version check");
-                return;
-            }
-
-            char error_message[128];
-            snprintf(error_message, sizeof(error_message), "code=%d, url=%s", err, ota_->GetCheckVersionUrl().c_str());
-            char buffer[256];
-            snprintf(buffer, sizeof(buffer), Lang::Strings::CHECK_NEW_VERSION_FAILED, retry_delay, error_message);
-            Alert(Lang::Strings::ERROR, buffer, "cloud_slash", Lang::Sounds::OGG_EXCLAMATION);
-
-            ESP_LOGW(TAG, "Check new version failed, retry in %d seconds (%d/%d)", retry_delay, retry_count, MAX_RETRY);
-            for (int i = 0; i < retry_delay; i++) {
-                vTaskDelay(pdMS_TO_TICKS(1000));
-                if (GetDeviceState() == kDeviceStateIdle) {
-                    break;
-                }
-            }
-            retry_delay *= 2; // Double the retry delay
-            continue;
-        }
-        retry_count = 0;
-        retry_delay = 10; // Reset retry delay
-
-        if (ota_->HasNewVersion()) {
-            if (UpgradeFirmware(ota_->GetFirmwareUrl(), ota_->GetFirmwareVersion())) {
-                return; // This line will never be reached after reboot
-            }
-            // If upgrade failed, continue to normal operation
-        }
-
-        // No new version, mark the current version as valid
+    auto display = board.GetDisplay();
+    
+    display->SetStatus(Lang::Strings::CHECKING_NEW_VERSION);
+    vTaskDelay(pdMS_TO_TICKS(500));
+    
+    // 标记当前版本为有效
+    if (ota_) {
         ota_->MarkCurrentVersionValid();
-        if (!ota_->HasActivationCode() && !ota_->HasActivationChallenge()) {
-            // Exit the loop if done checking new version
-            break;
-        }
-
-        display->SetStatus(Lang::Strings::ACTIVATION);
-        // Activation code is shown to the user and waiting for the user to input
-        if (ota_->HasActivationCode()) {
-            ShowActivationCode(ota_->GetActivationCode(), ota_->GetActivationMessage());
-        }
-
-        // This will block the loop until the activation is done or timeout
-        for (int i = 0; i < 10; ++i) {
-            ESP_LOGI(TAG, "Activating... %d/%d", i + 1, 10);
-            esp_err_t err = ota_->Activate();
-            if (err == ESP_OK) {
-                break;
-            } else if (err == ESP_ERR_TIMEOUT) {
-                vTaskDelay(pdMS_TO_TICKS(3000));
-            } else {
-                vTaskDelay(pdMS_TO_TICKS(10000));
-            }
-            if (GetDeviceState() == kDeviceStateIdle) {
-                break;
-            }
-        }
     }
+    
+    ESP_LOGI(TAG, "Version check skipped, ready to use Dashscope");
 }
 
 void Application::InitializeProtocol() {
@@ -473,14 +418,9 @@ void Application::InitializeProtocol() {
 
     display->SetStatus(Lang::Strings::LOADING_PROTOCOL);
 
-    if (ota_->HasMqttConfig()) {
-        protocol_ = std::make_unique<MqttProtocol>();
-    } else if (ota_->HasWebsocketConfig()) {
-        protocol_ = std::make_unique<WebsocketProtocol>();
-    } else {
-        ESP_LOGW(TAG, "No protocol specified in the OTA config, using MQTT");
-        protocol_ = std::make_unique<MqttProtocol>();
-    }
+    // 直接使用 Dashscope 协议,不依赖官方服务器配置
+    ESP_LOGI(TAG, "Using Dashscope protocol for Aliyun Bailian application");
+    protocol_ = std::make_unique<DashscopeProtocol>();
 
     protocol_->OnConnected([this]() {
         DismissAlert();
