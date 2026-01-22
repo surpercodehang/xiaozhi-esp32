@@ -6,6 +6,68 @@ config OTA_URL
     help
         The application will access this URL to check for new firmwares and server address.
 
+choice XIAOZHI_PROTOCOL_TYPE
+    prompt "Protocol Type"
+    default XIAOZHI_PROTOCOL_OTA
+    help
+        Select the protocol type for connecting to AI services.
+        选择连接 AI 服务的协议类型。
+
+    config XIAOZHI_PROTOCOL_OTA
+        bool "Use xiaozhi.me (OTA Configuration)"
+        help
+            Connect to xiaozhi.me official server. Configuration is managed through the web console.
+            连接到 xiaozhi.me 官方服务器。通过网页控制台管理配置。
+
+    config XIAOZHI_PROTOCOL_BAILIAN
+        bool "Use Aliyun Bailian Application (Direct API)"
+        help
+            Directly use Aliyun Bailian Application API Key + App ID without xiaozhi.me.
+            直接使用阿里云百炼应用 API Key + App ID,无需 xiaozhi.me。
+
+    config XIAOZHI_PROTOCOL_CUSTOM
+        bool "Custom Protocol (Advanced)"
+        help
+            Use custom protocol configuration for advanced users.
+            使用自定义协议配置,适合高级用户。
+endchoice
+
+menu "Aliyun Bailian Application Configuration"
+    depends on XIAOZHI_PROTOCOL_BAILIAN
+    
+    config BAILIAN_API_KEY
+        string "Bailian API Key"
+        default ""
+        help
+            Your Aliyun Bailian API Key (starts with 'sk-').
+            Get it from: https://dashscope.console.aliyun.com/
+            你的阿里云百炼 API Key (以 'sk-' 开头)。
+            获取地址: https://dashscope.console.aliyun.com/
+
+    config BAILIAN_APP_ID
+        string "Bailian Application ID"
+        default ""
+        help
+            Your Bailian Application ID.
+            Create an application at: https://bailian.console.aliyun.com/
+            你的百炼应用 ID。
+            在此创建应用: https://bailian.console.aliyun.com/
+    
+    config BAILIAN_USE_STREAMING
+        bool "Enable Streaming Output"
+        default y
+        help
+            Enable streaming output for lower latency.
+            启用流式输出以降低延迟。
+
+    config BAILIAN_SESSION_TIMEOUT
+        int "Session Timeout (seconds)"
+        default 300
+        help
+            Session timeout in seconds.
+            会话超时时间(秒)。
+endmenu
+
 choice
     prompt "Flash Assets"
     default FLASH_DEFAULT_ASSETS if !USE_EMOTE_MESSAGE_STYLE

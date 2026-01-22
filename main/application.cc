@@ -5,6 +5,9 @@
 #include "audio_codec.h"
 #include "mqtt_protocol.h"
 #include "websocket_protocol.h"
+#ifdef CONFIG_XIAOZHI_PROTOCOL_BAILIAN
+#include "bailian_protocol.h"
+#endif
 #include "assets/lang_config.h"
 #include "mcp_server.h"
 #include "assets.h"
@@ -317,6 +320,19 @@ void Application::HandleActivationDoneEvent() {
 }
 
 void Application::ActivationTask() {
+#ifdef CONFIG_XIAOZHI_PROTOCOL_BAILIAN
+    // 使用百炼应用协议时,跳过 OTA 检查,直接初始化协议
+    ESP_LOGI(TAG, "Using Bailian protocol, skipping OTA checks");
+    
+    // 创建一个空的 OTA 对象以保持兼容性
+    ota_ = std::make_unique<Ota>();
+    
+    // Initialize the protocol
+    InitializeProtocol();
+    
+    // Signal completion to main loop
+    xEventGroupSetBits(event_group_, MAIN_EVENT_ACTIVATION_DONE);
+#else
     // Create OTA object for activation process
     ota_ = std::make_unique<Ota>();
 
@@ -331,6 +347,7 @@ void Application::ActivationTask() {
 
     // Signal completion to main loop
     xEventGroupSetBits(event_group_, MAIN_EVENT_ACTIVATION_DONE);
+#endif
 }
 
 void Application::CheckAssetsVersion() {
@@ -473,6 +490,12 @@ void Application::InitializeProtocol() {
 
     display->SetStatus(Lang::Strings::LOADING_PROTOCOL);
 
+#ifdef CONFIG_XIAOZHI_PROTOCOL_BAILIAN
+    // 使用阿里云百炼应用协议(直接 API 方式)
+    ESP_LOGI(TAG, "Using Aliyun Bailian Application Protocol");
+    protocol_ = std::make_unique<BailianProtocol>();
+#else
+    // 使用传统的 OTA 配置方式(xiaozhi.me)
     if (ota_->HasMqttConfig()) {
         protocol_ = std::make_unique<MqttProtocol>();
     } else if (ota_->HasWebsocketConfig()) {
@@ -481,6 +504,7 @@ void Application::InitializeProtocol() {
         ESP_LOGW(TAG, "No protocol specified in the OTA config, using MQTT");
         protocol_ = std::make_unique<MqttProtocol>();
     }
+#endif
 
     protocol_->OnConnected([this]() {
         DismissAlert();
