@@ -2,7 +2,7 @@
 #define BAILIAN_PROTOCOL_H
 
 #include "protocol.h"
-#include "websocket.h"
+#include <web_socket.h>
 #include <memory>
 #include <string>
 #include <chrono>
